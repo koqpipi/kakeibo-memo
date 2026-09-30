@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#6f8f78"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><title>家計簿メモ</title>
+<style>
+:root{--green:#6f8f78;--dark:#405448;--pale:#edf3ee;--cream:#fbfaf6;--line:#dbe4dd;--muted:#7b877f}
+*{box-sizing:border-box}body{margin:0;background:var(--cream);color:var(--dark);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif}button,input{font:inherit} .app{max-width:520px;margin:auto;padding:22px 18px 34px}.top{display:flex;justify-content:space-between;align-items:end;margin-bottom:18px}.brand{font-size:23px;font-weight:700;letter-spacing:.04em}.date{font-size:13px;color:var(--muted)}.leaf{color:var(--green)}.total{background:var(--pale);border-radius:22px;padding:20px 22px;margin-bottom:18px}.total small{color:var(--muted)}.amount{font-size:34px;font-weight:700;margin-top:3px}.form{background:#fff;border:1px solid var(--line);border-radius:20px;padding:16px;margin-bottom:18px}.row{display:flex;gap:10px}.input{width:100%;border:1px solid var(--line);border-radius:13px;padding:12px 13px;outline:none;background:#fff}.yen{max-width:125px}.add{width:100%;margin-top:10px;border:0;border-radius:13px;padding:12px;background:var(--green);color:white;font-weight:700}.section{font-weight:700;margin:20px 3px 10px}.empty{text-align:center;color:var(--muted);padding:28px 0}.item{background:#fff;border:1px solid var(--line);border-radius:17px;padding:14px;margin-bottom:9px;display:flex;align-items:center;gap:10px}.info{flex:1}.name{font-weight:600}.meta{font-size:11px;color:var(--muted);margin-top:3px}.price{font-weight:700}.check{border:1px solid var(--line);background:var(--pale);color:var(--dark);border-radius:10px;padding:7px 9px;font-size:11px}.done{opacity:.55}.history{margin-top:26px}.day{background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:10px}.dayhead{display:flex;justify-content:space-between;font-weight:700}.daytotal{font-size:13px}.dayitems{margin-top:8px;font-size:13px;color:#667269}.clear{border:0;background:transparent;color:#8b746b;font-size:12px;margin-top:12px;padding:4px}.note{font-size:11px;color:var(--muted);text-align:center;margin-top:25px;line-height:1.6}
+</style></head><body><main class="app">
+<div class="top"><div class="brand"><span class="leaf">🌿</span> 家計簿メモ</div><div class="date" id="date"></div></div>
+<section class="total"><small>今日の支出</small><div class="amount" id="total">¥0</div></section>
+<section class="form"><div class="row"><input id="name" class="input" placeholder="何に使った？"><input id="amount" class="input yen" inputmode="numeric" placeholder="金額"></div><button class="add" onclick="add()">＋ 追加する</button></section>
+<div class="section">今日の記録</div><div id="list"></div>
+<section class="history"><div class="section">過去の記録</div><div id="history"></div></section>
+<div class="note">入力内容はこのiPhoneのブラウザ内に保存されます。<br>GoodNotesへ転記したら「転記済み」にできます。</div>
+</main>
+<script>
+const KEY='kakeibo_memo_v1';
+let data=JSON.parse(localStorage.getItem(KEY)||'[]');
+const pad=n=>String(n).padStart(2,'0');
+const today=()=>{let d=new Date();return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`};
+const jp=d=>{let x=new Date(d+'T00:00:00');return `${x.getMonth()+1}/${x.getDate()}（${'日月火水木金土'[x.getDay()]}）`};
+function save(){localStorage.setItem(KEY,JSON.stringify(data));render()}
+function add(){let n=document.getElementById('name').value.trim(), a=parseInt(document.getElementById('amount').value.replace(/[^0-9]/g,''));if(!n||!a)return;data.push({id:Date.now(),date:today(),name:n,amount:a,done:false});document.getElementById('name').value='';document.getElementById('amount').value='';save()}
+function toggle(id){let x=data.find(v=>v.id===id);if(x)x.done=!x.done;save()}
+function clearDone(){data=data.filter(x=>!(x.date===today()&&x.done));save()}
+function render(){
+ document.getElementById('date').textContent=jp(today());
+ let t=data.filter(x=>x.date===today()).reduce((s,x)=>s+x.amount,0);document.getElementById('total').textContent='¥'+t.toLocaleString();
+ let todayItems=data.filter(x=>x.date===today()).sort((a,b)=>b.id-a.id);
+ document.getElementById('list').innerHTML=todayItems.length?todayItems.map(x=>`<div class="item ${x.done?'done':''}"><div class="info"><div class="name">${esc(x.name)}</div><div class="meta">${x.done?'転記済み':'未転記'}</div></div><div class="price">¥${x.amount.toLocaleString()}</div><button class="check" onclick="toggle(${x.id})">${x.done?'戻す':'転記済み'}</button></div>`).join('')+`<button class="clear" onclick="clearDone()">転記済みを削除</button>`:'<div class="empty">まだ記録がありません🌿</div>';
+ let groups={};data.filter(x=>x.date!==today()).forEach(x=>(groups[x.date]??=[]).push(x));
+ document.getElementById('history').innerHTML=Object.keys(groups).sort().reverse().slice(0,14).map(d=>{let arr=groups[d],sum=arr.reduce((s,x)=>s+x.amount,0);return `<div class="day"><div class="dayhead"><span>${jp(d)}</span><span class="daytotal">¥${sum.toLocaleString()}</span></div><div class="dayitems">${arr.map(x=>`${esc(x.name)}　¥${x.amount.toLocaleString()}${x.done?'　✓':''}`).join('<br>')}</div></div>`}).join('')||'<div class="empty">過去の記録はここに表示されます</div>';
+}
+function esc(s){return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+document.getElementById('amount').addEventListener('keydown',e=>{if(e.key==='Enter')add()});document.getElementById('name').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('amount').focus()});render();
+</script></body></html>
